@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>社区智能问诊台 - 综合健康终端</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Noto Sans SC"', 'sans-serif'] },
+                    colors: {
+                        panda: {
+                            green: '#00b894',
+                            dark: '#2d3436',
+                            bg: '#f0f2f5',
+                            surface: '#ffffff',
+                            blue: '#0984e3',
+                            red: '#d63031'
+                        }
+                    },
+                    boxShadow: {
+                        'panel': '0 4px 20px rgba(0,0,0,0.05)',
+                        'float': '0 10px 30px rgba(0, 184, 148, 0.25)',
+                        'inner': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'scan': 'scan 2s linear infinite',
+                    },
+                    keyframes: {
+                        scan: {
+                            '0%': { top: '0%' },
+                            '100%': { top: '100%' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { user-select: none; overflow: hidden; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* 交互动效 */
+        .test-card {
+            transition: all 0.2s ease;
+        }
+        .test-card:active {
+            transform: scale(0.95);
+        }
+
+        /* 玻璃拟态 */
+        .glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+        
+        /* 报告纸张效果 */
+        .report-paper {
+            background-image: linear-gradient(#f0f0f0 1px, transparent 1px);
+            background-size: 100% 24px;
+        }
+    </style>
+</head>
+<body class="bg-panda-bg h-screen w-screen flex flex-col text-gray-800 font-sans">
+
+    <!-- 1. 顶部栏 (Header) -->
+    <header class="h-20 bg-white shadow-panel flex items-center justify-between px-8 z-30 flex-shrink-0">
+        <!-- 左上角：标题 -->
+        <!-- <div class="flex items-center gap-4">
+            <div class="w-10 h-10 bg-panda-dark rounded-xl flex items-center justify-center text-white text-xl shadow-lg">
+                <i class="fa-solid fa-paw"></i>
+            </div>
+            <h1 class="text-2xl font-black tracking-tight text-gray-900">社区智能问诊台</h1>
+        </div> -->
+        <!-- 左上角：标题 -->
+        <div class="flex items-center">
+            <h1 class="text-3xl font-black tracking-tight text-gray-900">社区智能问诊台</h1>
+        </div>
+
+        <!-- 中间：状态/时间 -->
+        <div class="flex items-center gap-6 bg-gray-100 px-6 py-2 rounded-full">
+            <div class="flex items-center gap-2 text-gray-500 text-sm">
+                <i class="fa-solid fa-location-dot"></i>
+                <span>幸福社区站 No.082</span>
+            </div>
+            <div class="w-px h-4 bg-gray-300"></div>
+            <div class="text-xl font-mono font-bold text-panda-dark" id="clock">12:00</div>
+        </div>
+
+        <!-- 右上角：客服 -->
+        <button class="flex items-center gap-2 bg-white border border-gray-200 px-5 py-2.5 rounded-xl text-panda-dark font-bold hover:bg-gray-50 hover:border-panda-green transition shadow-sm active:scale-95">
+            <i class="fa-solid fa-headset text-lg text-panda-green"></i>
+            <span>客服求助</span>
+        </button>
+    </header>
+
+    <!-- 2. 主体内容 (Main Grid) -->
+    <main class="flex-1 p-6 grid grid-cols-12 gap-6 overflow-hidden">
+        
+        <!-- 左侧栏 (Col-3): 用户信息 + 历史报告(左下角) -->
+        <aside class="col-span-3 flex flex-col gap-6">
+            <!-- 用户卡片 -->
+            <div class="bg-white rounded-3xl p-6 shadow-panel flex flex-col items-center text-center">
+                <div class="w-24 h-24 rounded-full bg-gray-200 mb-4 overflow-hidden border-4 border-white shadow-md">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" class="w-full h-full bg-gray-100">
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">张建国</h2>
+                <p class="text-gray-500 text-sm mb-4">65岁 | 男 | 居民卡用户</p>
+                <div class="w-full flex justify-between bg-gray-50 p-3 rounded-xl text-sm">
+                    <div class="flex flex-col">
+                        <span class="text-gray-400 text-xs">上次体检</span>
+                        <span class="font-bold">3天前</span>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="text-gray-400 text-xs">健康评分</span>
+                        <span class="font-bold text-panda-green">88分</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 占位空间 (Spacer) -->
+            <div class="flex-1"></div>
+
+            <!-- 左下角：历史报告 (History Report) -->
+            <div onclick="openHistory()" class="bg-gradient-to-br from-panda-dark to-gray-800 rounded-3xl p-6 shadow-float cursor-pointer group transition transform hover:-translate-y-1 relative overflow-hidden">
+                <div class="absolute right-0 top-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
+                <div class="relative z-10 text-white">
+                    <div class="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-panda-green transition-colors">
+                        <i class="fa-solid fa-file-medical-alt"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-1">历史健康报告</h3>
+                    <p class="text-gray-400 text-sm">查看历次检测数据趋势</p>
+                    <div class="mt-4 flex items-center text-sm font-bold text-panda-green">
+                        点击查看 <i class="fa-solid fa-arrow-right ml-2 group-hover:translate-x-2 transition-transform"></i>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 中间栏 (Col-6): 健康检测网格 -->
+        <section class="col-span-6 flex flex-col">
+            <div class="mb-4 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-stethoscope text-panda-green"></i> 自助健康检测
+                </h2>
+                <span class="text-xs text-gray-400">点击项目开始检测，数据自动同步</span>
+            </div>
+
+            <!-- 11项检测网格 -->
+            <div class="flex-1 bg-white rounded-[2rem] p-6 shadow-panel grid grid-cols-3 gap-4 overflow-y-auto no-scrollbar content-start">
+                
+                <!-- JS生成卡片 -->
+                <script>
+                    const tests = [
+                        { id: 'height', name: '身高', icon: 'fa-ruler-vertical', color: 'blue' },
+                        { id: 'weight', name: '体重', icon: 'fa-weight-scale', color: 'indigo' },
+                        { id: 'body', name: '人体成分', icon: 'fa-child', color: 'purple' },
+                        { id: 'bp', name: '血压', icon: 'fa-heart-pulse', color: 'red' },
+                        { id: 'waist', name: '腰围', icon: 'fa-tape', color: 'orange' },
+                        { id: 'spo2', name: '血氧饱和度', icon: 'fa-wind', color: 'cyan' },
+                        { id: 'temp', name: '体温', icon: 'fa-temperature-half', color: 'yellow' },
+                        { id: 'sugar', name: '血糖', icon: 'fa-droplet', color: 'pink' },
+                        { id: 'uric', name: '尿酸', icon: 'fa-flask', color: 'teal' },
+                        { id: 'chol', name: '总胆固醇', icon: 'fa-burger', color: 'orange' },
+                        { id: 'ecg', name: '心电', icon: 'fa-heart-crack', color: 'rose' },
+                    ];
+
+                    document.write(tests.map(t => `
+                        <div onclick="startTest('${t.id}', '${t.name}')" class="test-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-${t.color}-50 hover:shadow-md border border-transparent hover:border-${t.color}-200 group h-32">
+                            <i class="fa-solid ${t.icon} text-3xl text-${t.color}-500 mb-3 group-hover:scale-110 transition-transform"></i>
+                            <span class="font-bold text-gray-700 group-hover:text-${t.color}-700">${t.name}</span>
+                        </div>
+                    `).join(''));
+                </script>
+                
+                <!-- 补位卡片 -->
+                <div class="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center opacity-50 border border-dashed border-gray-300">
+                    <span class="text-xs text-gray-400">更多项目<br>敬请期待</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 右侧栏 (Col-3): 智能问诊 -->
+        <aside class="col-span-3 flex flex-col h-full">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-user-doctor text-panda-green"></i> 智能问诊
+            </h2>
+
+            <div onclick="startConsult()" class="flex-1 bg-white rounded-[2rem] shadow-panel overflow-hidden relative cursor-pointer group test-card border-2 border-transparent hover:border-panda-green flex flex-col">
+                <!-- 顶部视觉区 -->
+                <div class="h-1/2 bg-green-50 relative flex items-center justify-center overflow-hidden">
+                    <div class="absolute inset-0 bg-panda-green opacity-5"></div>
+                    <img src="https://img.freepik.com/free-photo/portrait-3d-male-doctor_23-2151107212.jpg?t=st=1716350000~exp=1716353600~hmac=xxxxx" class="w-32 h-32 rounded-full object-cover shadow-lg z-10 border-4 border-white" alt="Doctor AI">
+                    <!-- 脉冲动画 -->
+                    <div class="absolute w-32 h-32 bg-panda-green rounded-full opacity-20 animate-ping"></div>
+                </div>
+
+                <!-- 底部内容区 -->
+                <div class="h-1/2 p-6 flex flex-col items-center text-center">
+                    <div class="bg-panda-green text-white text-xs px-3 py-1 rounded-full font-bold mb-3">AI 智能匹配 + 三甲医生</div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">一对一视频问诊</h3>
+                    <p class="text-gray-500 text-sm mb-6">基于您的检测数据，自动匹配最适合的专科医生。</p>
+                    
+                    <button class="mt-auto w-full bg-panda-dark text-white py-3 rounded-xl font-bold shadow-lg group-hover:bg-panda-green transition-colors">
+                        立即连线
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- ================= 模态框 1: 健康检测过程与结果 ================= -->
+    <div id="modal-test" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-white w-[600px] rounded-[2rem] p-8 relative shadow-2xl">
+            <button onclick="closeModal('test')" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            
+            <!-- 阶段 1: 检测动画 -->
+            <div id="test-process" class="flex flex-col items-center py-10">
+                <h3 class="text-2xl font-bold text-gray-900 mb-8">正在测量<span id="test-name-label"></span>...</h3>
+                <div class="relative w-64 h-64 mb-6">
+                    <!-- 模拟仪器界面 -->
+                    <div class="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+                    <div class="absolute inset-0 border-4 border-panda-green rounded-full border-t-transparent animate-spin"></div>
+                    <div class="absolute inset-0 flex items-center justify-center flex-col">
+                        <i class="fa-solid fa-wave-square text-4xl text-panda-green animate-pulse"></i>
+                        <span class="text-sm text-gray-400 mt-2">保持静止</span>
+                    </div>
+                </div>
+                <p class="text-gray-500">请勿移动，数据采集大约需要 3 秒</p>
+            </div>
+
+            <!-- 阶段 2: 检测结果 -->
+            <div id="test-result" class="hidden flex-col items-center py-6">
+                <div class="w-16 h-16 bg-green-100 text-panda-green rounded-full flex items-center justify-center text-3xl mb-4">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">检测完成</h3>
+                
+                <!-- 报告卡片 -->
+                <div class="w-full bg-gray-50 rounded-xl p-6 mb-6 border border-gray-200">
+                    <div class="flex justify-between items-end mb-2">
+                        <span class="text-gray-500 font-medium" id="result-label">检测项目</span>
+                        <span class="text-4xl font-black text-gray-900" id="result-value">--</span>
+                    </div>
+                    <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden mb-2">
+                        <div class="bg-panda-green h-full w-2/3"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>偏低</span>
+                        <span class="text-panda-green font-bold">正常</span>
+                        <span>偏高</span>
+                    </div>
+                    <div class="mt-4 p-3 bg-white rounded-lg text-sm text-gray-600 shadow-sm">
+                        <i class="fa-solid fa-circle-info text-blue-500 mr-1"></i>
+                        <span id="result-advice">各项指标处于理想范围内，请继续保持。</span>
+                    </div>
+                </div>
+
+                <button onclick="closeModal('test')" class="w-full bg-panda-dark text-white py-3 rounded-xl font-bold">确定并保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 模态框 2: 智能问诊 ================= -->
+    <div id="modal-consult" class="hidden fixed inset-0 bg-gray-900 z-50 flex flex-col">
+        <!-- 顶部栏 -->
+        <div class="h-16 bg-gray-800 flex items-center justify-between px-6 text-white">
+            <div class="flex items-center gap-3">
+                <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <span class="font-bold">正在连线...</span>
+            </div>
+            <button onclick="closeModal('consult')" class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600">
+                <i class="fa-solid fa-phone-slash"></i>
+            </button>
+        </div>
+
+        <!-- 视频主区域 -->
+        <div class="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+            <!-- 模拟医生画面 -->
+            <img src="https://images.unsplash.com/photo-1559839734-2b71ea86b48e?auto=format&fit=crop&q=80&w=1600" class="absolute inset-0 w-full h-full object-cover opacity-80">
+            
+            <!-- 医生信息浮层 -->
+            <div class="absolute top-8 left-8 bg-black/40 backdrop-blur p-4 rounded-xl text-white border border-white/10">
+                <h3 class="text-xl font-bold">王建国 副主任医师</h3>
+                <p class="text-sm text-gray-300">心血管内科 | 匹配度 98%</p>
+            </div>
+
+            <!-- 用户小窗 -->
+            <div class="absolute bottom-8 right-8 w-64 h-40 bg-gray-800 rounded-xl border-2 border-white/30 overflow-hidden shadow-2xl">
+                <div class="w-full h-full flex items-center justify-center bg-gray-700 text-gray-500">
+                    <i class="fa-solid fa-user text-4xl"></i>
+                </div>
+            </div>
+
+            <!-- 问诊结束后的报告 (默认隐藏) -->
+            <div id="consult-report" class="hidden absolute inset-0 bg-white z-20 flex flex-col items-center justify-center p-20 animate-fade-in">
+                <div class="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl p-10 border border-gray-200">
+                    <div class="flex items-center gap-4 mb-6 border-b pb-4">
+                        <div class="w-12 h-12 bg-panda-green rounded-full flex items-center justify-center text-white text-2xl"><i class="fa-solid fa-file-prescription"></i></div>
+                        <div>
+                            <h2 class="text-2xl font-bold">问诊总结与处方</h2>
+                            <p class="text-gray-500 text-sm">医师：王建国 | 日期：2026-01-12</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6 mb-8">
+                        <div>
+                            <h4 class="font-bold text-gray-900 mb-1">诊断结果：</h4>
+                            <p class="text-gray-600 bg-gray-50 p-3 rounded-lg">轻度高血压，伴有疲劳症状。</p>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-900 mb-1">推荐药品：</h4>
+                            <ul class="list-disc list-inside text-gray-600 bg-gray-50 p-3 rounded-lg">
+                                <li>硝苯地平控释片 (30mg*7片) x 2盒</li>
+                                <li>维生素B族片 (100片) x 1瓶</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-900 mb-1">医嘱建议：</h4>
+                            <p class="text-gray-600 bg-gray-50 p-3 rounded-lg">低盐饮食，注意休息，建议一周后复查血压。</p>
+                        </div>
+                    </div>
+
+                    <button onclick="closeModal('consult')" class="w-full bg-panda-dark text-white py-4 rounded-xl font-bold text-lg shadow-lg">结束问诊并打印</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 模态框 3: 历史报告 (左下角触发) ================= -->
+    <div id="modal-history" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-white w-[800px] h-[600px] rounded-[2rem] p-8 relative shadow-2xl flex flex-col">
+            <button onclick="closeModal('history')" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-clock-rotate-left text-panda-green"></i> 历史检测数据档案
+            </h2>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-gray-400 text-sm border-b border-gray-100">
+                            <th class="py-3 font-medium">检测日期</th>
+                            <th class="py-3 font-medium">主要项目</th>
+                            <th class="py-3 font-medium">结果摘要</th>
+                            <th class="py-3 font-medium">状态</th>
+                            <th class="py-3 font-medium text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-600">
+                        <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                            <td class="py-4 font-mono">2026-01-09</td>
+                            <td class="py-4"><span class="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs font-bold">血压</span></td>
+                            <td class="py-4">128/82 mmHg</td>
+                            <td class="py-4"><span class="text-green-500 font-bold text-xs"><i class="fa-solid fa-circle text-[6px] align-middle mr-1"></i>正常</span></td>
+                            <td class="py-4 text-right"><button class="text-panda-green hover:underline text-sm">查看</button></td>
+                        </tr>
+                        <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                            <td class="py-4 font-mono">2025-12-25</td>
+                            <td class="py-4"><span class="bg-purple-50 text-purple-600 px-2 py-1 rounded text-xs font-bold">血糖</span></td>
+                            <td class="py-4">6.1 mmol/L</td>
+                            <td class="py-4"><span class="text-yellow-500 font-bold text-xs"><i class="fa-solid fa-circle text-[6px] align-middle mr-1"></i>偏高</span></td>
+                            <td class="py-4 text-right"><button class="text-panda-green hover:underline text-sm">查看</button></td>
+                        </tr>
+                        <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                            <td class="py-4 font-mono">2025-12-10</td>
+                            <td class="py-4"><span class="bg-rose-50 text-rose-600 px-2 py-1 rounded text-xs font-bold">心电</span></td>
+                            <td class="py-4">窦性心律</td>
+                            <td class="py-4"><span class="text-green-500 font-bold text-xs"><i class="fa-solid fa-circle text-[6px] align-middle mr-1"></i>正常</span></td>
+                            <td class="py-4 text-right"><button class="text-panda-green hover:underline text-sm">查看</button></td>
+                        </tr>
+                         <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                            <td class="py-4 font-mono">2025-11-05</td>
+                            <td class="py-4"><span class="bg-orange-50 text-orange-600 px-2 py-1 rounded text-xs font-bold">总胆固醇</span></td>
+                            <td class="py-4">4.2 mmol/L</td>
+                            <td class="py-4"><span class="text-green-500 font-bold text-xs"><i class="fa-solid fa-circle text-[6px] align-middle mr-1"></i>正常</span></td>
+                            <td class="py-4 text-right"><button class="text-panda-green hover:underline text-sm">查看</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center text-sm text-gray-400">
+                <span>显示最近 4 条记录</span>
+                <button class="flex items-center gap-1 hover:text-panda-green">更多记录 <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟检测数据范围
+        const mockData = {
+            'height': { val: '175 cm', label: '身高', advice: '身高标准。' },
+            'weight': { val: '70 kg', label: '体重', advice: 'BMI指数 22.9，属于标准范围。' },
+            'body': { val: '18.5%', label: '体脂率', advice: '体脂率正常，肌肉含量适中。' },
+            'bp': { val: '120/80', label: '血压(mmHg)', advice: '血压理想，心血管健康状况良好。' },
+            'waist': { val: '85 cm', label: '腰围', advice: '腰围正常，无中心性肥胖风险。' },
+            'spo2': { val: '98%', label: '血氧', advice: '血氧饱和度极佳，肺功能良好。' },
+            'temp': { val: '36.6°C', label: '体温', advice: '体温正常。' },
+            'sugar': { val: '5.2', label: '血糖(mmol/L)', advice: '空腹血糖正常。' },
+            'uric': { val: '320', label: '尿酸(μmol/L)', advice: '尿酸水平正常，无痛风风险。' },
+            'chol': { val: '4.5', label: '总胆固醇', advice: '胆固醇水平正常。' },
+            'ecg': { val: '正常', label: '心电图', advice: '窦性心律，未见明显异常。' },
+        };
+
+        // 1. 开始检测
+        function startTest(id, name) {
+            const modal = document.getElementById('modal-test');
+            const process = document.getElementById('test-process');
+            const result = document.getElementById('test-result');
+            
+            // Reset
+            process.classList.remove('hidden');
+            result.classList.add('hidden');
+            result.classList.remove('flex');
+            document.getElementById('test-name-label').innerText = name;
+
+            modal.classList.remove('hidden');
+
+            // 模拟延迟
+            setTimeout(() => {
+                process.classList.add('hidden');
+                result.classList.remove('hidden');
+                result.classList.add('flex');
+                
+                // 填充数据
+                const data = mockData[id];
+                document.getElementById('result-label').innerText = data.label;
+                document.getElementById('result-value').innerText = data.val;
+                document.getElementById('result-advice').innerText = data.advice;
+
+            }, 3000);
+        }
+
+        // 2. 智能问诊
+        function startConsult() {
+            document.getElementById('modal-consult').classList.remove('hidden');
+            document.getElementById('consult-report').classList.add('hidden');
+            
+            // 模拟问诊结束出报告
+            setTimeout(() => {
+                document.getElementById('consult-report').classList.remove('hidden');
+            }, 5000); // 5秒后出报告
+        }
+
+        // 3. 历史记录
+        function openHistory() {
+            document.getElementById('modal-history').classList.remove('hidden');
+        }
+
+        // 通用关闭
+        function closeModal(id) {
+            document.getElementById(`modal-${id}`).classList.add('hidden');
+        }
+
+        // 时钟
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+        }, 1000);
+    </script>
+</body>
+</html>
