@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>社区智能问诊台 - 自助售药系统</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Noto Sans SC"', 'sans-serif'] },
+                    colors: {
+                        panda: {
+                            green: '#00b894',     // 品牌主色
+                            dark: '#2d3436',      // 深色文字
+                            bg: '#f3f4f6',        // 背景色
+                            orange: '#e17055',    // 警告/退回色
+                            blue: '#0984e3'       // 支付色
+                        }
+                    },
+                    boxShadow: {
+                        'kiosk': '0 4px 20px rgba(0,0,0,0.08)',
+                        'float': '0 10px 30px rgba(0, 184, 148, 0.3)',
+                    },
+                    animation: {
+                        'print': 'printReceipt 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards',
+                        'scan-light': 'scanLight 2s linear infinite',
+                    },
+                    keyframes: {
+                        printReceipt: {
+                            '0%': { height: '0', opacity: '0' },
+                            '100%': { height: '380px', opacity: '1' }
+                        },
+                        scanLight: {
+                            '0%': { top: '0%' },
+                            '50%': { top: '100%' },
+                            '100%': { top: '0%' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* 基础设置：禁止选中文本，隐藏滚动条但保留滚动功能 */
+        body { user-select: none; -webkit-user-select: none; overscroll-behavior: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 交互反馈 */
+        .active-scale:active { transform: scale(0.96); transition: transform 0.1s; }
+        
+        /* 小票锯齿边缘 */
+        .receipt-edge {
+            background-image: linear-gradient(135deg, white 50%, transparent 50%), linear-gradient(225deg, white 50%, transparent 50%);
+            background-position: bottom left;
+            background-size: 24px 24px;
+            background-repeat: repeat-x;
+        }
+
+        /* 图片容器优化 */
+        .img-container {
+            position: relative;
+            overflow: hidden;
+        }
+        .img-container img {
+            transition: transform 0.5s ease;
+        }
+
+        /* 导航栏展开动画 */
+        #nav-container {
+            transition: height 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-panda-bg h-screen w-screen flex flex-col text-gray-800 overflow-hidden font-sans">
+
+    <!-- 1. 顶部状态栏 (Header) -->
+    <header class="h-24 bg-white shadow-kiosk flex items-center justify-between px-6 z-30 flex-shrink-0 relative">
+        <!-- 左侧：标题 -->
+        <div class="flex flex-col justify-center">
+            <h1 class="text-2xl font-black tracking-tight text-gray-900">社区智能问诊台</h1>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                <span class="text-sm text-gray-500 font-medium">自助售药系统运行正常</span>
+            </div>
+        </div>
+
+        <!-- 右侧：客服与编号 -->
+        <div class="flex items-center gap-4">
+            <div class="text-right mr-2">
+                <div class="text-xs text-gray-400 font-bold uppercase">Device ID</div>
+                <div class="text-lg font-mono font-bold text-panda-dark">NO.082</div>
+            </div>
+            <button class="flex flex-col items-center justify-center bg-gray-100 w-14 h-14 rounded-xl active-scale text-panda-dark hover:bg-gray-200">
+                <i class="fa-solid fa-headset text-xl mb-0.5"></i>
+                <span class="text-[10px] font-bold">求助</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 2. 分类导航栏 (可折叠式) -->
+    <nav class="bg-white border-b border-gray-200 z-20 flex-shrink-0 shadow-sm relative">
+        <!-- 容器：控制高度 -->
+        <div id="nav-container" class="overflow-hidden h-[72px] transition-all duration-300 ease-in-out">
+            <div class="p-4 pr-20 flex flex-wrap gap-3">
+                <button onclick="filterCategory('all')" class="cat-btn active flex-shrink-0 px-6 py-2.5 rounded-full font-bold text-base transition bg-panda-dark text-white shadow-md">
+                    全部药品
+                </button>
+                <button onclick="filterCategory('cold')" class="cat-btn flex-shrink-0 px-6 py-2.5 rounded-full font-bold text-base text-gray-500 bg-gray-100 transition hover:bg-gray-200">
+                    感冒/发热
+                </button>
+                <button onclick="filterCategory('injury')" class="cat-btn flex-shrink-0 px-6 py-2.5 rounded-full font-bold text-base text-gray-500 bg-gray-100 transition hover:bg-gray-200">
+                    外伤护理
+                </button>
+                <button onclick="filterCategory('chronic')" class="cat-btn flex-shrink-0 px-6 py-2.5 rounded-full font-bold text-base text-gray-500 bg-gray-100 transition hover:bg-gray-200">
+                    慢病用药
+                </button>
+                <button onclick="filterCategory('tools')" class="cat-btn flex-shrink-0 px-6 py-2.5 rounded-full font-bold text-base text-gray-500 bg-gray-100 transition hover:bg-gray-200">
+                    医疗器械
+                </button>
+                <button onclick="filterCategory('digest')" class="cat-btn flex-shrink-0 px-6 py-2.5 rounded-full font-bold text-base text-gray-500 bg-gray-100 transition hover:bg-gray-200">
+                    肠胃消化
+                </button>
+                <button onclick="filterCategory('skin')" class="cat-btn flex-shrink-0 px-6 py-2.5 rounded-full font-bold text-base text-gray-500 bg-gray-100 transition hover:bg-gray-200">
+                    皮肤用药
+                </button>
+            </div>
+        </div>
+
+        <!-- 展开/收起按钮 -->
+        <button onclick="toggleNav()" id="nav-toggle-btn" class="absolute right-4 top-4 w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition active-scale shadow-sm z-30">
+            <i class="fa-solid fa-chevron-down transition-transform duration-300" id="nav-icon"></i>
+        </button>
+    </nav>
+
+    <!-- 3. 主体内容区 (Product Grid) -->
+    <main class="flex-1 overflow-y-auto no-scrollbar p-5 pb-32 bg-panda-bg relative" id="main-scroll">
+        <!-- 顶部时间显示 -->
+        <div class="flex justify-between items-center mb-6 px-2">
+            <div class="text-gray-500 font-medium text-sm">2026年1月12日 星期一</div>
+            <div class="text-2xl font-mono font-black text-gray-800" id="clock">14:30</div>
+        </div>
+
+        <!-- 商品网格 (由JS填充) -->
+        <div id="product-grid" class="grid grid-cols-2 gap-5">
+            <!-- Loading 占位 -->
+            <div class="col-span-2 text-center py-20 text-gray-400">
+                <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-4"></i>
+                <p>正在加载药品数据...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- 4. 底部功能栏 (Footer) -->
+    <footer class="absolute bottom-0 left-0 w-full h-28 bg-white shadow-[0_-5px_30px_rgba(0,0,0,0.1)] flex items-center justify-between px-6 z-40 rounded-t-3xl">
+        
+        <!-- 左侧：药物退回 -->
+        <button onclick="openReturnModal()" class="flex flex-col items-center justify-center w-24 h-full active-scale group">
+            <div class="w-12 h-12 rounded-full border-2 border-panda-orange text-panda-orange flex items-center justify-center text-xl mb-1 group-hover:bg-orange-50 transition">
+                <i class="fa-solid fa-rotate-left"></i>
+            </div>
+            <span class="text-xs font-bold text-gray-600">药物退回</span>
+        </button>
+
+        <!-- 中间：合计信息 -->
+        <div class="flex-1 flex flex-col items-end mr-6">
+            <div class="text-xs text-gray-400 mb-1">共 <span id="cart-count-label" class="text-panda-green font-bold">0</span> 件商品</div>
+            <div class="text-3xl font-black text-gray-900 leading-none">¥ <span id="cart-total">0.00</span></div>
+        </div>
+
+        <!-- 右侧：结算按钮 -->
+        <button onclick="openCheckoutModal()" class="h-16 px-8 bg-panda-green text-white rounded-2xl font-bold text-xl shadow-float flex items-center gap-3 active-scale hover:bg-emerald-500 transition">
+            <i class="fa-solid fa-check-to-slot"></i>
+            <span>去结算</span>
+        </button>
+    </footer>
+
+    <!-- ==================== 模态框 (Modals) ==================== -->
+
+    <!-- 1. 药品详情 (Product Detail) -->
+    <div id="modal-detail" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white w-[90%] max-w-md rounded-[2rem] overflow-hidden shadow-2xl transform scale-95 transition-transform duration-300 relative" id="detail-card">
+            
+            <!-- 图片区 -->
+            <div class="h-64 bg-gray-50 relative">
+                <img id="detail-img" src="" class="w-full h-full object-cover">
+                <button onclick="closeModal('detail')" class="absolute top-4 right-4 w-10 h-10 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-gray-800 shadow-sm active-scale">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+                <div class="absolute bottom-4 left-4 bg-black/60 backdrop-blur text-white px-3 py-1 rounded-lg text-xs font-bold">
+                    OTC 非处方药
+                </div>
+            </div>
+
+            <!-- 内容区 -->
+            <div class="p-6">
+                <h2 id="detail-name" class="text-2xl font-bold text-gray-900 mb-1">药品名称</h2>
+                <p id="detail-spec" class="text-gray-500 text-sm mb-6">规格：--</p>
+
+                <div class="h-40 overflow-y-auto no-scrollbar mb-6 space-y-4">
+                    <div>
+                        <h4 class="font-bold text-sm text-panda-green mb-1"><i class="fa-solid fa-circle-check mr-1"></i>功能主治</h4>
+                        <p id="detail-desc" class="text-gray-600 text-sm leading-relaxed text-justify">--</p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm text-panda-green mb-1"><i class="fa-solid fa-clock mr-1"></i>用法用量</h4>
+                        <p id="detail-usage" class="text-gray-600 text-sm leading-relaxed text-justify">--</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div class="text-3xl font-black text-red-500">¥ <span id="detail-price">0.00</span></div>
+                    <button id="detail-add-btn" class="bg-panda-dark text-white px-8 py-3 rounded-xl font-bold shadow-lg active-scale">
+                        加入订单
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 结算支付 (Checkout & Payment) -->
+    <div id="modal-checkout" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full sm:w-[90%] sm:max-w-lg h-[85vh] sm:h-[800px] rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden relative animate-[slideUp_0.3s_ease-out]">
+            
+            <!-- 标题 -->
+            <div class="h-16 border-b border-gray-100 flex items-center justify-between px-6 flex-shrink-0">
+                <h3 class="text-xl font-bold text-gray-900">订单结算</h3>
+                <button onclick="closeModal('checkout')" class="text-gray-400 hover:text-gray-600 px-2 py-2">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- 列表 -->
+            <div id="checkout-list" class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                <!-- JS 填充 -->
+            </div>
+
+            <!-- 支付区 -->
+            <div class="bg-white p-6 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-10">
+                <div class="flex justify-between items-center mb-6">
+                    <span class="text-gray-500 font-medium">应付金额</span>
+                    <span class="text-4xl font-black text-gray-900">¥ <span id="checkout-total">0.00</span></span>
+                </div>
+
+                <!-- 支付二维码 -->
+                <div class="bg-gray-100 rounded-2xl p-4 mb-4 flex gap-4 items-center relative overflow-hidden">
+                    <div class="w-24 h-24 bg-white p-1 rounded-lg flex-shrink-0 relative">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CommunityClinicPay" class="w-full h-full">
+                        <!-- 扫描光效 -->
+                        <div class="absolute top-0 left-0 w-full h-1 bg-panda-green shadow-[0_0_10px_#00b894] animate-scan-light"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="text-sm font-bold text-gray-800 mb-1">请扫码支付</div>
+                        <div class="flex gap-2 text-2xl">
+                            <i class="fa-brands fa-weixin text-green-500"></i>
+                            <i class="fa-brands fa-alipay text-blue-500"></i>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-2">支持医保电子凭证</div>
+                    </div>
+
+                    <!-- 支付成功遮罩 -->
+                    <div id="pay-success-overlay" class="absolute inset-0 bg-panda-green flex items-center justify-center gap-3 text-white opacity-0 transition-opacity duration-300 pointer-events-none">
+                        <i class="fa-solid fa-circle-check text-3xl"></i>
+                        <span class="text-xl font-bold">支付成功</span>
+                    </div>
+                </div>
+
+                <button onclick="processPayment()" class="w-full bg-panda-blue text-white py-4 rounded-xl font-bold text-lg shadow-lg active-scale">
+                    确认已支付
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 小票打印 (Receipt) -->
+    <div id="modal-receipt" class="hidden fixed inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center">
+        <div class="relative w-full max-w-xs flex flex-col items-center">
+            <!-- 打印机出口 -->
+            <div class="w-72 h-6 bg-gray-800 rounded-full z-20 shadow-2xl border-b-4 border-black mb-[-2px]"></div>
+            
+            <!-- 纸张 -->
+            <div id="receipt-paper" class="w-64 bg-white shadow-lg flex flex-col p-5 text-sm font-mono text-gray-600 relative z-10 origin-top overflow-hidden">
+                <div class="text-center font-bold text-xl text-black mb-2 border-b-2 border-dashed border-gray-300 pb-2">社区智能问诊台</div>
+                <div class="flex justify-between text-xs mb-1"><span>终端: NO.082</span><span>2026-01-12</span></div>
+                
+                <div class="my-4 border-b border-dashed border-gray-300"></div>
+                
+                <div class="flex justify-between mb-2"><span>药品采购</span><span class="font-bold">详见清单</span></div>
+                <div class="flex justify-between mb-2"><span>支付方式</span><span>在线支付</span></div>
+                
+                <div class="my-4 border-b-2 border-dashed border-gray-300"></div>
+                
+                <div class="flex justify-between text-lg font-black text-black mb-6">
+                    <span>实付:</span>
+                    <span>已付款</span>
+                </div>
+                
+                <div class="text-center text-xs text-gray-400">
+                    <p>请从下方取药口取走您的药品</p>
+                    <p class="mt-1">祝您早日康复</p>
+                </div>
+
+                <!-- 底部锯齿 -->
+                <div class="absolute bottom-0 left-0 w-full h-3 receipt-edge"></div>
+            </div>
+            
+            <button onclick="finishOrder()" class="mt-12 bg-white text-panda-dark px-10 py-3 rounded-full font-bold text-lg shadow-float active-scale animate-bounce">
+                完成取药
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. 药物退回 (Return) -->
+    <div id="modal-return" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-md rounded-[2rem] shadow-2xl p-8 text-center relative">
+            <button onclick="closeModal('return')" class="absolute top-5 right-5 text-gray-400 hover:text-gray-600 px-2">
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </button>
+
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">药物退回服务</h3>
+            <p class="text-gray-500 text-sm mb-8">请将过期或错误的药品放入下方回收口</p>
+
+            <!-- 状态演示 -->
+            <div class="h-56 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 mb-8 flex items-center justify-center relative overflow-hidden">
+                <!-- 步骤1：提示放入 -->
+                <div id="return-step-1" class="flex flex-col items-center animate-pulse">
+                    <i class="fa-solid fa-box-open text-6xl text-panda-orange mb-4"></i>
+                    <span class="font-bold text-panda-orange">回收仓门已打开</span>
+                </div>
+
+                <!-- 步骤2：处理中 -->
+                <div id="return-step-2" class="hidden flex-col items-center absolute inset-0 bg-white justify-center z-10">
+                    <div class="w-16 h-16 border-4 border-panda-green border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <span class="font-bold text-gray-600">正在识别药品...</span>
+                </div>
+
+                <!-- 步骤3：成功 -->
+                <div id="return-step-3" class="hidden flex-col items-center absolute inset-0 bg-green-50 justify-center z-10">
+                    <i class="fa-solid fa-circle-check text-6xl text-panda-green mb-4"></i>
+                    <span class="font-bold text-gray-800 text-xl">退回成功</span>
+                    <span class="text-xs text-gray-500 mt-2">金额将在24小时内退回原账户</span>
+                </div>
+            </div>
+
+            <button onclick="startReturnProcess()" id="btn-return-confirm" class="w-full bg-panda-orange text-white py-4 rounded-xl font-bold text-lg shadow-lg active-scale">
+                我已放入药品
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 真实药品数据 (更新了图片和顺序) ---
+        const products = [
+            { 
+                id: 1, 
+                name: "复方氨酚烷胺片", 
+                price: 15.50, 
+                spec: "12片/盒", 
+                category: "cold", 
+                img: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=400", 
+                desc: "适用于缓解普通感冒及流行性感冒引起的发热、头痛、四肢酸痛、打喷嚏、流鼻涕、鼻塞、咽痛等症状。", 
+                usage: "口服。成人一次1片，一日2次。" 
+            },
+            { 
+                id: 2, 
+                name: "布洛芬缓释胶囊", 
+                price: 26.80, 
+                spec: "0.3g*20粒", 
+                category: "cold", 
+                img: "https://images.unsplash.com/photo-1585435557343-3b092031a831?auto=format&fit=crop&q=80&w=400", 
+                desc: "用于缓解轻至中度疼痛如头痛、关节痛、偏头痛、牙痛、肌肉痛、神经痛、痛经。也用于普通感冒或流行性感冒引起的发热。", 
+                usage: "口服。成人一次1粒，一日2次（早晚各一次）。" 
+            },
+            { 
+                id: 7, // 移到前面
+                name: "75%酒精消毒液", 
+                price: 9.90, 
+                spec: "100ml喷雾", 
+                category: "injury", 
+                img: "https://images.unsplash.com/photo-1585514020180-292167d0639e?auto=format&fit=crop&q=80&w=400", 
+                desc: "用于手部、皮肤及物体表面的消毒。", 
+                usage: "直接喷洒于待消毒部位，作用1-3分钟。" 
+            },
+            { 
+                id: 8, // 移到前面
+                name: "阿莫西林胶囊", 
+                price: 18.00, 
+                spec: "0.25g*24粒", 
+                category: "cold", 
+                img: "https://images.unsplash.com/photo-1628771065518-0d82f1938462?auto=format&fit=crop&q=80&w=400", 
+                desc: "适用于敏感菌（不产β内酰胺酶菌株）所致的呼吸道感染、泌尿生殖道感染等。", 
+                usage: "口服。成人一次0.5g，每6-8小时1次。" 
+            },
+            { 
+                id: 3, 
+                name: "维生素C咀嚼片", 
+                price: 19.90, 
+                spec: "100片/瓶", 
+                category: "chronic", 
+                img: "https://images.unsplash.com/photo-1577401239170-897942555fb3?auto=format&fit=crop&w=400&q=80", 
+                desc: "用于预防坏血病，也可用于各种急慢性传染性疾病及紫癜等的辅助治疗。", 
+                usage: "咀嚼后吞服。一次1片，一日3次。" 
+            },
+            { 
+                id: 4, 
+                name: "无菌创口贴", 
+                price: 8.00, 
+                spec: "20片/盒", 
+                category: "injury", 
+                img: "https://images.unsplash.com/photo-1618498082410-b4aa22193b38?auto=format&fit=crop&q=80&w=400", 
+                desc: "用于小面积开放性外科创伤，止血、护创。", 
+                usage: "撕开包装，将吸水垫对准创面，粘贴固定。" 
+            },
+            { 
+                id: 5, 
+                name: "电子体温计", 
+                price: 45.00, 
+                spec: "高精度", 
+                category: "tools", 
+                img: "https://images.unsplash.com/photo-1583324113626-70df0f4deaab?auto=format&fit=crop&q=80&w=400", 
+                desc: "用于测量人体体温，液晶显示，快速准确。", 
+                usage: "腋下测量或口腔测量，蜂鸣提示后读取数值。" 
+            },
+            { 
+                id: 6, 
+                name: "医用外科口罩", 
+                price: 12.50, 
+                spec: "10只/包独立装", 
+                category: "tools", 
+                img: "https://images.unsplash.com/photo-1586942593568-29361efcd571?auto=format&fit=crop&w=400&q=80", 
+                desc: "供临床医务人员在有创操作过程中佩戴，覆盖使用者的口、鼻及下颌。", 
+                usage: "挂耳式佩戴，深色面朝外。" 
+            }
+        ];
+
+        let cart = {}; // { id: qty }
+        let isNavExpanded = false;
+
+        // --- 2. 导航栏折叠逻辑 ---
+        function toggleNav() {
+            const container = document.getElementById('nav-container');
+            const icon = document.getElementById('nav-icon');
+            
+            if (!isNavExpanded) {
+                // 展开：高度自适应 (这里设置一个足够的高度来容纳两行)
+                container.style.height = '128px'; 
+                icon.style.transform = 'rotate(180deg)';
+                isNavExpanded = true;
+            } else {
+                // 收起：回到单行高度
+                container.style.height = '72px';
+                icon.style.transform = 'rotate(0deg)';
+                isNavExpanded = false;
+            }
+        }
+
+        // --- 3. 核心渲染逻辑 ---
+        function renderProducts(filter = 'all') {
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
+
+            products.forEach(p => {
+                if(filter !== 'all' && p.category !== filter) return;
+
+                const el = document.createElement('div');
+                el.className = "bg-white rounded-3xl p-4 shadow-sm border border-transparent hover:border-panda-green transition flex flex-col active-scale group";
+                el.onclick = (e) => {
+                    if(e.target.closest('.add-btn')) return;
+                    openDetail(p.id);
+                };
+
+                el.innerHTML = `
+                    <div class="aspect-square bg-gray-100 rounded-2xl mb-3 overflow-hidden img-container">
+                        <img src="${p.img}" class="w-full h-full object-cover group-hover:scale-110" loading="lazy">
+                    </div>
+                    <div class="flex-1 flex flex-col">
+                        <h3 class="font-bold text-gray-900 text-lg leading-tight mb-1 line-clamp-1">${p.name}</h3>
+                        <p class="text-xs text-gray-400 mb-3 font-medium">${p.spec}</p>
+                        <div class="mt-auto flex justify-between items-center">
+                            <span class="text-xl font-black text-red-500">¥${p.price.toFixed(2)}</span>
+                            <button onclick="addToCart(${p.id})" class="add-btn w-10 h-10 rounded-full bg-panda-bg text-panda-green hover:bg-panda-green hover:text-white flex items-center justify-center transition shadow-sm">
+                                <i class="fa-solid fa-plus text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(el);
+            });
+        }
+
+        // --- 4. 购物车逻辑 ---
+        function addToCart(id) {
+            cart[id] = (cart[id] || 0) + 1;
+            updateCartUI();
+            
+            // 简单的添加反馈
+            const btn = event.currentTarget;
+            btn.classList.add('bg-panda-green', 'text-white');
+            setTimeout(() => {
+                btn.classList.remove('bg-panda-green', 'text-white');
+                btn.classList.add('bg-panda-bg', 'text-panda-green');
+            }, 200);
+        }
+
+        function updateCartUI() {
+            let total = 0;
+            let count = 0;
+            
+            for(const [id, qty] of Object.entries(cart)) {
+                const p = products.find(i => i.id == id);
+                if(p) {
+                    total += p.price * qty;
+                    count += qty;
+                }
+            }
+            
+            document.getElementById('cart-total').innerText = total.toFixed(2);
+            document.getElementById('cart-count-label').innerText = count;
+
+            // 更新结算列表
+            const list = document.getElementById('checkout-list');
+            list.innerHTML = '';
+            
+            if(count === 0) {
+                list.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
+                        <i class="fa-solid fa-cart-arrow-down text-6xl mb-4"></i>
+                        <p>您的购物车是空的</p>
+                    </div>
+                `;
+            } else {
+                for(const [id, qty] of Object.entries(cart)) {
+                    const p = products.find(i => i.id == id);
+                    list.innerHTML += `
+                        <div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
+                            <img src="${p.img}" class="w-16 h-16 rounded-lg object-cover bg-gray-100">
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-900">${p.name}</h4>
+                                <div class="text-xs text-gray-500">${p.spec}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-gray-900">¥${(p.price * qty).toFixed(2)}</div>
+                                <div class="text-xs text-gray-400">x${qty}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            document.getElementById('checkout-total').innerText = total.toFixed(2);
+        }
+
+        // --- 5. 模态框与流程 ---
+        function openDetail(id) {
+            const p = products.find(i => i.id == id);
+            document.getElementById('detail-img').src = p.img;
+            document.getElementById('detail-name').innerText = p.name;
+            document.getElementById('detail-spec').innerText = `规格：${p.spec}`;
+            document.getElementById('detail-desc').innerText = p.desc;
+            document.getElementById('detail-usage').innerText = p.usage;
+            document.getElementById('detail-price').innerText = p.price.toFixed(2);
+            
+            document.getElementById('detail-add-btn').onclick = () => {
+                addToCart(p.id);
+                closeModal('detail');
+            };
+
+            const modal = document.getElementById('modal-detail');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                document.getElementById('detail-card').classList.remove('scale-95');
+                document.getElementById('detail-card').classList.add('scale-100');
+            }, 10);
+        }
+
+        function openCheckoutModal() {
+            if(Object.keys(cart).length === 0) return alert('请先选择药品');
+            document.getElementById('modal-checkout').classList.remove('hidden');
+            // Reset state
+            document.getElementById('pay-success-overlay').classList.remove('opacity-100');
+            document.getElementById('pay-success-overlay').classList.add('opacity-0');
+        }
+
+        function processPayment() {
+            const overlay = document.getElementById('pay-success-overlay');
+            overlay.classList.remove('opacity-0');
+            overlay.classList.add('opacity-100');
+
+            setTimeout(() => {
+                closeModal('checkout');
+                openReceipt();
+            }, 1500);
+        }
+
+        function openReceipt() {
+            document.getElementById('modal-receipt').classList.remove('hidden');
+            // Trigger animation
+            const paper = document.getElementById('receipt-paper');
+            paper.classList.remove('animate-print');
+            void paper.offsetWidth; // force reflow
+            paper.classList.add('animate-print');
+        }
+
+        function finishOrder() {
+            closeModal('receipt');
+            cart = {};
+            updateCartUI();
+        }
+
+        function openReturnModal() {
+            document.getElementById('modal-return').classList.remove('hidden');
+            // Reset steps
+            document.getElementById('return-step-1').classList.remove('hidden');
+            document.getElementById('return-step-2').classList.add('hidden');
+            document.getElementById('return-step-3').classList.add('hidden');
+            document.getElementById('btn-return-confirm').classList.remove('hidden');
+        }
+
+        function startReturnProcess() {
+            document.getElementById('btn-return-confirm').classList.add('hidden');
+            document.getElementById('return-step-1').classList.add('hidden');
+            document.getElementById('return-step-2').classList.remove('hidden');
+            document.getElementById('return-step-2').classList.add('flex');
+
+            setTimeout(() => {
+                document.getElementById('return-step-2').classList.add('hidden');
+                document.getElementById('return-step-3').classList.remove('hidden');
+                document.getElementById('return-step-3').classList.add('flex');
+                
+                setTimeout(() => closeModal('return'), 2000);
+            }, 2500);
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(`modal-${id}`);
+            modal.classList.add('hidden');
+            if(id === 'detail') {
+                modal.classList.add('opacity-0');
+                document.getElementById('detail-card').classList.add('scale-95');
+            }
+        }
+
+        function filterCategory(cat) {
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('bg-panda-dark', 'text-white', 'shadow-md');
+                btn.classList.add('text-gray-500', 'bg-gray-100');
+            });
+            event.currentTarget.classList.remove('text-gray-500', 'bg-gray-100');
+            event.currentTarget.classList.add('bg-panda-dark', 'text-white', 'shadow-md');
+            renderProducts(cat);
+        }
+
+        // --- 6. 初始化 ---
+        renderProducts();
+        
+        // 时钟
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+        }, 1000);
+
+    </script>
+</body>
+</html>

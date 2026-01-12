@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>社区智能问诊台 - 门禁终端</title>
+    
+    <!-- Google Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Noto Sans SC"', 'sans-serif'] },
+                    colors: {
+                        panda: {
+                            green: '#00b894',
+                            dark: '#2d3436',
+                            bg: '#f3f4f6',
+                            blue: '#0984e3'
+                        }
+                    },
+                    boxShadow: {
+                        'card': '0 10px 40px rgba(0,0,0,0.08)',
+                        'selected': '0 0 0 4px #00b894, 0 20px 40px rgba(0, 184, 148, 0.2)',
+                    },
+                    animation: {
+                        'scan-line': 'scanLine 2s linear infinite',
+                        'unlock': 'unlockPulse 1s ease-out forwards',
+                    },
+                    keyframes: {
+                        scanLine: {
+                            '0%': { top: '0%' },
+                            '100%': { top: '100%' }
+                        },
+                        unlockPulse: {
+                            '0%': { transform: 'scale(0.8)', opacity: '0' },
+                            '50%': { transform: 'scale(1.1)', opacity: '1' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { user-select: none; -webkit-user-select: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* 选中状态的过渡动画 */
+        .service-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* 选中时的角标 */
+        .check-badge {
+            clip-path: polygon(0 0, 100% 0, 100% 100%);
+        }
+    </style>
+</head>
+<body class="bg-panda-bg h-screen w-screen flex flex-col text-gray-800 font-sans overflow-hidden">
+
+    <!-- 1. 顶部状态栏 (Header) - 已移除Logo -->
+    <header class="h-24 bg-white shadow-sm flex items-center justify-between px-8 flex-shrink-0 z-20">
+        <!-- 左侧：仅保留标题 -->
+        <div class="flex flex-col justify-center">
+            <h1 class="text-3xl font-black tracking-tight text-gray-900">社区智能问诊台</h1>
+            <div class="text-xs text-gray-500 font-medium tracking-wide mt-1">SMART CLINIC STATION</div>
+        </div>
+
+        <!-- 右侧：客服 -->
+        <button class="flex items-center gap-2 bg-gray-100 px-6 py-3 rounded-full text-panda-dark font-bold hover:bg-gray-200 active:scale-95 transition">
+            <i class="fa-solid fa-headset text-xl"></i>
+            <span>客服求助</span>
+        </button>
+    </header>
+
+    <!-- 2. 主内容区：服务选择 -->
+    <main class="flex-1 flex flex-col px-8 py-10 relative">
+        
+        <!-- 欢迎语 -->
+        <div class="mb-12 text-center mt-10">
+            <h2 class="text-5xl font-bold text-gray-900 mb-4">请选择您需要的服务</h2>
+            <p class="text-gray-500 text-xl">支持多选，选定后扫码开门进入</p>
+        </div>
+
+        <!-- 卡片容器 -->
+        <div class="flex-1 flex flex-col gap-8 justify-center max-w-2xl mx-auto w-full pb-20">
+            
+            <!-- 选项 A: 健康检测 -->
+            <div id="card-checkup" onclick="toggleService('checkup')" class="service-card relative bg-white h-72 rounded-[2.5rem] p-10 shadow-card border-2 border-transparent cursor-pointer flex items-center gap-8 group hover:border-gray-300">
+                <!-- 图标 -->
+                <div class="w-36 h-36 rounded-[2rem] bg-blue-50 text-blue-500 flex items-center justify-center text-7xl flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                
+                <!-- 文字 -->
+                <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-4xl font-bold text-gray-900 mb-3">健康检测</h3>
+                        <span class="text-3xl font-black text-blue-600">¥10.00</span>
+                    </div>
+                    <p class="text-gray-500 text-lg leading-relaxed">
+                        包含身高体重、血压、血氧、血糖、尿酸等7项基础身体指标检测。
+                    </p>
+                </div>
+
+                <!-- 选中状态角标 (默认隐藏) -->
+                <div id="check-checkup" class="hidden absolute top-0 right-0 w-24 h-24 bg-panda-green rounded-tr-[2.3rem] rounded-bl-[2.5rem] flex items-start justify-end p-4 text-white text-3xl shadow-lg z-10">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+            </div>
+
+            <!-- 选项 B: 智能问诊 -->
+            <div id="card-consult" onclick="toggleService('consult')" class="service-card relative bg-white h-72 rounded-[2.5rem] p-10 shadow-card border-2 border-transparent cursor-pointer flex items-center gap-8 group hover:border-gray-300">
+                <!-- 图标 -->
+                <div class="w-36 h-36 rounded-[2rem] bg-purple-50 text-purple-500 flex items-center justify-center text-7xl flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <i class="fa-solid fa-user-doctor"></i>
+                </div>
+                
+                <!-- 文字 -->
+                <div class="flex-1">
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-4xl font-bold text-gray-900 mb-3">智能问诊</h3>
+                        <span class="text-3xl font-black text-purple-600">¥20.00</span>
+                    </div>
+                    <p class="text-gray-500 text-lg leading-relaxed">
+                        高清视频连线三甲医院全科医生，面对面实时诊断。
+                    </p>
+                </div>
+
+                <!-- 选中状态角标 (默认隐藏) -->
+                <div id="check-consult" class="hidden absolute top-0 right-0 w-24 h-24 bg-panda-green rounded-tr-[2.3rem] rounded-bl-[2.5rem] flex items-start justify-end p-4 text-white text-3xl shadow-lg z-10">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 3. 底部结算栏 -->
+    <footer class="h-40 bg-white shadow-[0_-5px_30px_rgba(0,0,0,0.1)] flex items-center justify-between px-12 z-30 rounded-t-[3rem]">
+        <div class="flex flex-col">
+            <span class="text-gray-500 text-base font-medium mb-1">订单总额</span>
+            <div class="flex items-baseline gap-2">
+                <span class="text-2xl font-bold text-gray-900">¥</span>
+                <span id="total-price" class="text-6xl font-black text-gray-900">0.00</span>
+            </div>
+        </div>
+
+        <button onclick="startPayment()" id="pay-btn" class="bg-gray-300 text-white px-16 py-6 rounded-3xl font-bold text-3xl shadow-none cursor-not-allowed transition-all flex items-center gap-4" disabled>
+            <i class="fa-solid fa-lock"></i>
+            <span>请先选择服务</span>
+        </button>
+    </footer>
+
+    <!-- ================= 模态框：支付 ================= -->
+    <div id="modal-payment" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-white w-[600px] rounded-[3rem] p-10 text-center shadow-2xl relative animate-[unlockPulse_0.3s_ease-out]">
+            <button onclick="closePayment()" class="absolute top-8 right-8 text-gray-400 hover:text-gray-600">
+                <i class="fa-solid fa-xmark text-4xl"></i>
+            </button>
+
+            <h3 class="text-3xl font-bold text-gray-900 mb-3">扫码开门</h3>
+            <p class="text-gray-500 text-lg mb-10">支付成功后，门禁将自动开启</p>
+
+            <div class="w-72 h-72 bg-gray-100 rounded-[2rem] mx-auto mb-8 relative overflow-hidden p-2 border-4 border-panda-green">
+                <!-- 使用Base64二维码，确保绝对不会出错 -->
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJQAAACUCAYAAAB1PADUAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHASURBVHhe7dixaoQwFEXR/v9Pe9PGF9hYWOQO9x04l1x4W5p+vr+/P/g+f4EHCgoKChQUFBR4oKCgoEBBQUGBBwoKCgoUFJ9QfH9/v/4+f4EHCgoKChQUFBR4oKCgoEBBQUGBBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBQfULy/v6//Pn+BBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBR4oKCgoEBBQUGBBwoKCgoUFBQfULy9vf36+/wFHigoKChQUFBQ4IGCgoICBQUFBR4oKCgoUFBQ4IGCgoICBQUFBR4oKCgoUFBQ4IGCgoICBQUFBR4oKCgoUFBQ4IGCgoICBQUFBR4oKCgoUFBQ4IGCgoICBQUFBR4oKCgoUFBQfEDx/f39+vv8BR4oKCgoUFBQUOCBgoKCAgUFBQUeKCgoKFBQUOCBgoKCAgUFBQUeKCgoKFBQUDz9Apo27/3s+72dAAAAAElFTkSuQmCC" class="w-full h-full rounded-xl opacity-90 rendering-pixelated">
+                
+                <!-- 扫描线动画 -->
+                <div class="absolute top-0 left-0 w-full h-2 bg-panda-green shadow-[0_0_20px_#00b894] animate-scan-line"></div>
+            </div>
+
+            <div class="flex justify-center gap-8 text-5xl mb-10">
+                <i class="fa-brands fa-weixin text-green-500"></i>
+                <i class="fa-brands fa-alipay text-blue-500"></i>
+            </div>
+
+            <button onclick="simulateSuccess()" class="w-full bg-panda-green text-white py-5 rounded-2xl font-bold text-2xl shadow-lg active:scale-95 transition">
+                模拟支付成功
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= 模态框：开门成功 ================= -->
+    <div id="modal-success" class="hidden fixed inset-0 bg-panda-green z-[60] flex flex-col items-center justify-center text-white">
+        
+        <div class="relative w-80 h-80 mb-12 flex items-center justify-center">
+            <!-- 扩散波纹 -->
+            <div class="absolute inset-0 bg-white/20 rounded-full animate-ping"></div>
+            <div class="absolute inset-4 bg-white/30 rounded-full animate-pulse"></div>
+            
+            <!-- 锁图标变化 -->
+            <div class="relative z-10 bg-white text-panda-green w-48 h-48 rounded-full flex items-center justify-center text-8xl shadow-2xl animate-unlock">
+                <i class="fa-solid fa-lock-open"></i>
+            </div>
+        </div>
+
+        <h2 class="text-6xl font-black mb-6 tracking-tight">门已解锁</h2>
+        <p class="text-2xl font-medium opacity-90">请进入问诊室，并在结束后随手关门</p>
+
+        <div class="mt-24 flex items-center gap-3 opacity-70 text-lg">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <span>5秒后自动返回首页...</span>
+        </div>
+    </div>
+
+    <script>
+        // 配置价格
+        const PRICES = {
+            checkup: 10.00,
+            consult: 20.00
+        };
+
+        // 状态管理
+        let state = {
+            checkup: false,
+            consult: false
+        };
+
+        // 切换选择
+        function toggleService(type) {
+            state[type] = !state[type];
+            updateUI();
+        }
+
+        // 更新界面
+        function updateUI() {
+            let total = 0;
+            let hasSelection = false;
+
+            // 遍历状态更新样式
+            for (const [type, isSelected] of Object.entries(state)) {
+                const card = document.getElementById(`card-${type}`);
+                const badge = document.getElementById(`check-${type}`);
+                
+                if (isSelected) {
+                    total += PRICES[type];
+                    hasSelection = true;
+                    // 选中样式
+                    card.classList.add('border-panda-green', 'bg-green-50/30');
+                    card.classList.remove('border-transparent');
+                    badge.classList.remove('hidden');
+                } else {
+                    // 未选中样式
+                    card.classList.remove('border-panda-green', 'bg-green-50/30');
+                    card.classList.add('border-transparent');
+                    badge.classList.add('hidden');
+                }
+            }
+
+            // 更新价格
+            document.getElementById('total-price').innerText = total.toFixed(2);
+
+            // 更新支付按钮状态
+            const btn = document.getElementById('pay-btn');
+            if (hasSelection) {
+                btn.disabled = false;
+                btn.classList.remove('bg-gray-300', 'cursor-not-allowed', 'text-white');
+                btn.classList.add('bg-panda-dark', 'text-white', 'shadow-lg', 'hover:bg-black', 'active:scale-95');
+                btn.innerHTML = `<i class="fa-solid fa-qrcode"></i> <span>扫码开门</span>`;
+            } else {
+                btn.disabled = true;
+                btn.classList.add('bg-gray-300', 'cursor-not-allowed', 'text-white');
+                btn.classList.remove('bg-panda-dark', 'text-white', 'shadow-lg', 'hover:bg-black', 'active:scale-95');
+                btn.innerHTML = `<i class="fa-solid fa-lock"></i> <span>请先选择服务</span>`;
+            }
+        }
+
+        // 支付流程
+        function startPayment() {
+            document.getElementById('modal-payment').classList.remove('hidden');
+        }
+
+        function closePayment() {
+            document.getElementById('modal-payment').classList.add('hidden');
+        }
+
+        function simulateSuccess() {
+            closePayment();
+            const successModal = document.getElementById('modal-success');
+            successModal.classList.remove('hidden');
+
+            // 5秒后重置
+            setTimeout(() => {
+                location.reload();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
